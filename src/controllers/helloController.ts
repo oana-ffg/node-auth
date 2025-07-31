@@ -2,11 +2,13 @@
 // This file exports the controller function used by the route.
 
 import { Request, Response } from 'express'; // Import Express types for type-safe request and response objects
+import { z } from 'zod';
 
-interface HelloRequestBody {
-  name: string;
-  message: string;
-}
+const helloSchema = z.object({
+  name: z.string().min(1),
+  message: z.string().min(1).max(500),
+});
+type HelloRequestBody = z.infer<typeof helloSchema>;
 
 // Controller function for handling GET requests to /api/hello
 // Sends a JSON response with a friendly message
@@ -24,16 +26,20 @@ export const iAmATeapot = (req: Request, res: Response): void => {
   });
 };
 
-export const postHello = (req: Request<{}, {}, HelloRequestBody>, res: Response): void => {
-  const { name, message } = req.body;
+export const postHello = (req: Request<{}, {}, HelloRequestBody>, res: Response): Response => {
+  const result = helloSchema.safeParse(req.body);
 
-  if (!name || !message) {
-    res.status(400).json({ error: 'Both name and message are required.' });
-    return;
-  }
+  if (!result.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: z.flattenError(result.error)
+    });
+  }   
 
+  const { name, message } = result.data;
   const length = message.length;
-  res.status(200).json({
-    greeting: `Hello ${name}, your message is ${length} characters long!`
+  return res.status(200).json({
+    greeting: `Hello ${name}, your message is ${length} characters long!`,
+    message: message
   });
 };
