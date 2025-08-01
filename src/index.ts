@@ -2,12 +2,13 @@
 // This file sets up environment variables, initializes the Express app,
 // configures middleware and routes, and starts the server.
 
-import express, { Request, Response } from 'express'; // Import Express and request/response types
 import dotenv from 'dotenv'; // Import dotenv to load environment variables from a .env file
+dotenv.config(); // Load environment variables from .env into process.env, before importing any other modules
+
+import express, { Request, Response } from 'express'; // Import Express and request/response types
 import helloRoutes from './routes/helloRoutes'; // Import our custom hello route
 import authRoutes from './routes/authRoutes'; // Import our custom auth route
 
-dotenv.config(); // Load environment variables from .env into process.env
 
 const app = express(); // Create an instance of an Express application
 const PORT = process.env.PORT || 3000; // Use PORT from .env or fallback to 3000
