@@ -8,10 +8,10 @@ dotenv.config(); // Load environment variables from .env into process.env, befor
 import express, { Request, Response } from 'express'; // Import Express and request/response types
 import helloRoutes from './routes/helloRoutes'; // Import our custom hello route
 import authRoutes from './routes/authRoutes'; // Import our custom auth route
+import { APP_CONFIG } from './constants'; // Import application configuration
 
 
 const app = express(); // Create an instance of an Express application
-const PORT = process.env.PORT || 3000; // Use PORT from .env or fallback to 3000
 
 app.use(express.json()); // Add middleware to automatically parse JSON request bodies
 app.use('/api/hello', helloRoutes); // Mount helloRoutes on the /api/hello path
@@ -22,6 +22,6 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // Start the server and listen on the defined port
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(APP_CONFIG.API.PORT, () => {
+  console.log(`Server running on http://localhost:${APP_CONFIG.API.PORT}`);
 });

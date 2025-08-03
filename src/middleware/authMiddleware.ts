@@ -2,17 +2,16 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+import { APP_CONFIG } from '../constants';
 
 // Extend Request to include the decoded user
 export interface AuthenticatedRequest extends Request {
-  user?: string | jwt.JwtPayload;
+  userId?: string;
 }
 
 /**
  * Middleware to verify JWT token from the Authorization header.
- * If valid, attaches decoded user info to req.user and calls next().
+ * If valid, attaches decoded user info to req.userId and calls next().
  * If invalid or missing, sends a 401 Unauthorized response.
  */
 export const verifyToken = (
@@ -28,11 +27,10 @@ export const verifyToken = (
   }
 
   const token = authHeader.split(' ')[1];
-  console.log('JWT_SECRET:', process.env.JWT_SECRET);
-  console.log('token:', token);
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const decoded = jwt.verify(token, APP_CONFIG.JWT.SECRET) as { userId: string };
+    req.userId = decoded.userId;
     next();
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired token' });

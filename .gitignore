@@ -55,3 +55,13 @@ jest-test-results.json
 # yarn.lock
 # pnpm-lock.yaml
 /src/generated/prisma
+
+
+# AI
+
+.cursorrules
+AGENTS.md
+Claude.md
+.roo/rules/
+.github/copilot-instructions.md
+.windsurfrules
