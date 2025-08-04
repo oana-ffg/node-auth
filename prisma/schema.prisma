@@ -31,22 +31,18 @@ model User {
 model RefreshToken {
   id             String          @id @default(cuid())
   token          String          @unique
-  user           User            @relation(fields: [userId], references: [id])
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String
   createdAt      DateTime        @default(now())
   expiresAt      DateTime
   revoked        Boolean         @default(false)
-
-  replacedById   String?         
-  replacedBy     RefreshToken?   @relation("Replacement", fields: [replacedById], references: [id])
-  replaces       RefreshToken[]  @relation("Replacement") // 👈 inverse of replacedBy
 
   @@index([userId])
 }
 
 model BackupCode {
   id         String   @id @default(cuid())
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String
   codeHash   String   // bcrypt or similar
   used       Boolean  @default(false)

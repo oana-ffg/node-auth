@@ -39,3 +39,7 @@ export const disable2FASchema = z.object({
 export const generate2FASchema = z.object({
   password: z.string().min(1, { message: 'Password is required for 2FA management.' }),
 });
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, { message: 'Password is required to delete account.' }),
+});

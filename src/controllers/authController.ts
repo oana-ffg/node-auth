@@ -4,7 +4,7 @@ import { PrismaClient } from '../generated/prisma'; // Import Prisma client for 
 import crypto from 'crypto'; // Add this import at the top
 import jwt from 'jsonwebtoken'; // Import jsonwebtoken for creating and verifying JWT tokens
 import dotenv from 'dotenv'; // Import dotenv to load environment variables from .env file
-import { registerSchema, loginSchema, login2FASchema, refreshSchema, confirm2FASchema, reset2FASchema, disable2FASchema, generate2FASchema } from '../schemas/authSchemas'; // Import our custom auth schemas
+import { registerSchema, loginSchema, login2FASchema, refreshSchema, confirm2FASchema, reset2FASchema, disable2FASchema, generate2FASchema, deleteAccountSchema } from '../schemas/authSchemas'; // Import our custom auth schemas
 import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
@@ -544,6 +544,66 @@ export const disable2FA = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(200).json({
       message: '2FA disabled successfully.',
       twoFactorEnabled: false,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+/**
+ * Deletes the user account and all associated data. Requires password verification for security.
+ * This action is irreversible and will delete all user data including refresh tokens.
+ * Route: DELETE /account
+ *
+ * @param {AuthenticatedRequest} req - Express request object containing password in the body.
+ * @param {Response} res - Express response object used to send back status and messages.
+ * @returns {Promise<Response>} JSON response indicating success or failure of account deletion.
+ */
+export const deleteAccount = async (req: AuthenticatedRequest, res: Response) => {
+  const parse = deleteAccountSchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: z.flattenError(parse.error) });
+  }
+  const { password } = parse.data;
+
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Find the user and verify password
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify the provided password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    // Delete all associated data in a transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // Verify the user still exists before deletion
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!currentUser) {
+        throw new Error('User no longer exists');
+      }
+
+      // Delete the user account (cascading deletes will handle refresh tokens and backup codes)
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    return res.status(200).json({
+      message: 'Account deleted successfully. All data has been permanently removed.',
     });
   } catch (err) {
     console.error(err);
