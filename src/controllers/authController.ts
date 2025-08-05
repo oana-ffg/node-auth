@@ -10,6 +10,7 @@ import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { APP_CONFIG, parseDuration } from '../constants';
+import { encrypt2FASecret, decrypt2FASecret, serializeEncryptedData, deserializeEncryptedData } from '../utils/encryption';
 
 /**
  * Prisma client instance used to interact with the database.
@@ -173,13 +174,23 @@ export const loginWith2FA = async (req: Request, res: Response) => {
     }
 
     // Check if 2FA is enabled
-    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+    if (!user.twoFactorEnabled || !user.twoFactorSecret || !user.encryptionVersion) {
       return res.status(400).json({ error: '2FA is not enabled for this account.' });
+    }
+
+    // Decrypt the 2FA secret
+    let decryptedSecret: string;
+    try {
+      const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
+      decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
+    } catch (error) {
+      console.error('Failed to decrypt 2FA secret during login:', error);
+      return res.status(500).json({ error: 'Authentication system error.' });
     }
 
     // Verify the OTP code
     const verified = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
+      secret: decryptedSecret,
       encoding: 'base32',
       token: otp,
       window: 2, // Allow for time drift (2 time steps = 60 seconds)
@@ -335,27 +346,35 @@ export const generate2FASecret = async (req: AuthenticatedRequest, res: Response
   }
 
   // If 2FA is already enabled, return existing secret
-  if (user.twoFactorEnabled && user.twoFactorSecret) {
+  if (user.twoFactorEnabled && user.twoFactorSecret && user.encryptionVersion) {
+    try {
+      // Decrypt the existing secret
+      const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
+      const decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
 
-    const secret = {
-      base32: user.twoFactorSecret,
-      otpauth_url: speakeasy.otpauthURL({
-        secret: user.twoFactorSecret,
-        label: user.email,
-        issuer: APP_CONFIG.NAME,
-        algorithm: 'sha1',
-        digits: 6,
-        period: 30,
-      })
-    };
+      const secret = {
+        base32: decryptedSecret,
+        otpauth_url: speakeasy.otpauthURL({
+          secret: decryptedSecret,
+          label: user.email,
+          issuer: APP_CONFIG.NAME,
+          algorithm: 'sha1',
+          digits: 6,
+          period: 30,
+        })
+      };
 
-    const qr = await qrcode.toDataURL(secret.otpauth_url);
+      const qr = await qrcode.toDataURL(secret.otpauth_url);
 
-    return res.json({ 
-      otpauthUrl: secret.otpauth_url, 
-      qrCodeDataURL: qr,
-      message: '2FA is already enabled. This is your existing setup.'
-    });
+      return res.json({ 
+        otpauthUrl: secret.otpauth_url, 
+        qrCodeDataURL: qr,
+        message: '2FA is already enabled. This is your existing setup.'
+      });
+    } catch (error) {
+      console.error('Failed to decrypt existing 2FA secret:', error);
+      return res.status(500).json({ error: 'Failed to retrieve existing 2FA setup.' });
+    }
   }
 
   // Generate new secret only if 2FA is not enabled
@@ -363,15 +382,27 @@ export const generate2FASecret = async (req: AuthenticatedRequest, res: Response
     name: `${APP_CONFIG.NAME} (${user.email})`,
   });
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { twoFactorSecret: secret.base32 },
-  });
+  try {
+    // Encrypt the secret with current version
+    const { encryptedData, version } = encrypt2FASecret(secret.base32);
+    const serializedData = serializeEncryptedData(encryptedData);
 
-  const otpauthUrl = secret.otpauth_url!;
-  const qr = await qrcode.toDataURL(otpauthUrl);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        twoFactorSecret: serializedData,
+        encryptionVersion: version
+      },
+    });
 
-  return res.json({ otpauthUrl, qrCodeDataURL: qr });
+    const otpauthUrl = secret.otpauth_url!;
+    const qr = await qrcode.toDataURL(otpauthUrl);
+
+    return res.json({ otpauthUrl, qrCodeDataURL: qr });
+  } catch (error) {
+    console.error('Failed to encrypt 2FA secret:', error);
+    return res.status(500).json({ error: 'Failed to generate 2FA secret.' });
+  }
 };
 
 /**
@@ -401,13 +432,23 @@ export const confirm2FA = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (!user.twoFactorSecret) {
+    if (!user.twoFactorSecret || !user.encryptionVersion) {
       return res.status(400).json({ error: '2FA secret not found. Please generate a 2FA secret first.' });
+    }
+
+    // Decrypt the 2FA secret
+    let decryptedSecret: string;
+    try {
+      const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
+      decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
+    } catch (error) {
+      console.error('Failed to decrypt 2FA secret during confirmation:', error);
+      return res.status(500).json({ error: 'Authentication system error.' });
     }
 
     // Verify the OTP code using speakeasy
     const verified = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
+      secret: decryptedSecret,
       encoding: 'base32',
       token: otp,
       window: 2, // Allow for time drift (2 time steps = 60 seconds)
@@ -471,23 +512,33 @@ export const reset2FA = async (req: AuthenticatedRequest, res: Response) => {
       name: `${APP_CONFIG.NAME} (${user.email})`,
     });
 
-    // Update user with new secret and disable 2FA until confirmed
-    await prisma.user.update({
-      where: { id: userId },
-      data: { 
-        twoFactorSecret: secret.base32,
-        twoFactorEnabled: false // Disable until new setup is confirmed
-      },
-    });
+    try {
+      // Encrypt the new secret with current version
+      const { encryptedData, version } = encrypt2FASecret(secret.base32);
+      const serializedData = serializeEncryptedData(encryptedData);
 
-    const otpauthUrl = secret.otpauth_url!;
-    const qr = await qrcode.toDataURL(otpauthUrl);
+      // Update user with new secret and disable 2FA until confirmed
+      await prisma.user.update({
+        where: { id: userId },
+        data: { 
+          twoFactorSecret: serializedData,
+          encryptionVersion: version,
+          twoFactorEnabled: false // Disable until new setup is confirmed
+        },
+      });
 
-    return res.status(200).json({
-      message: '2FA reset successfully. Please scan the new QR code and confirm setup.',
-      otpauthUrl,
-      qrCodeDataURL: qr,
-    });
+      const otpauthUrl = secret.otpauth_url!;
+      const qr = await qrcode.toDataURL(otpauthUrl);
+
+      return res.status(200).json({
+        message: '2FA reset successfully. Please scan the new QR code and confirm setup.',
+        otpauthUrl,
+        qrCodeDataURL: qr,
+      });
+    } catch (error) {
+      console.error('Failed to encrypt new 2FA secret during reset:', error);
+      return res.status(500).json({ error: 'Failed to reset 2FA secret.' });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error.' });
@@ -537,7 +588,8 @@ export const disable2FA = async (req: AuthenticatedRequest, res: Response) => {
       where: { id: userId },
       data: { 
         twoFactorEnabled: false,
-        twoFactorSecret: null
+        twoFactorSecret: null,
+        encryptionVersion: null
       },
     });
 

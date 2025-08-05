@@ -23,8 +23,9 @@ model User {
 
   refreshTokens  RefreshToken[]  // 👈 Inverse of the user <-> token relation
 
-  twoFactorSecret String?   // base32-encoded
+  twoFactorSecret String?   // encrypted base32-encoded
   twoFactorEnabled Boolean  @default(false) 
+  encryptionVersion String? @default("v1") // tracks which encryption key version was used
   backupCodes    BackupCode[]
 }
 

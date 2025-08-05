@@ -55,6 +55,16 @@ export const APP_CONFIG = {
     BCRYPT_ROUNDS: 12,
     PASSWORD_MIN_LENGTH: 8,
   },
+  
+  // Encryption configuration for 2FA secrets
+  ENCRYPTION: {
+    ALGORITHM: 'aes-256-gcm',
+    IV_LENGTH: 12, // For GCM, this is 12 or 16 bytes
+    TAG_LENGTH: 16, // GCM authentication tag length
+    KEY_LENGTH: 32, // 256 bits
+    SALT_LENGTH: 32, // 256-bit salt
+    PBKDF2_ITERATIONS: 200000, // Increase for higher security, but more latency
+  },
 } as const;
 
 // Type for the app config to ensure type safety
