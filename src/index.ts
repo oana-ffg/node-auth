@@ -9,10 +9,12 @@ import express, { Request, Response } from 'express'; // Import Express and requ
 import helloRoutes from './routes/helloRoutes'; // Import our custom hello route
 import authRoutes from './routes/authRoutes'; // Import our custom auth route
 import { APP_CONFIG } from './constants'; // Import application configuration
+import { generalRateLimit } from './middleware/rateLimitMiddleware'; // Import rate limiting middleware
 
 
 const app = express(); // Create an instance of an Express application
 
+app.use(generalRateLimit); // Apply general rate limiting to all requests
 app.use(express.json()); // Add middleware to automatically parse JSON request bodies
 app.use('/api/hello', helloRoutes); // Mount helloRoutes on the /api/hello path
 app.use('/api/auth', authRoutes); // Mount authRoutes on the /api/auth path

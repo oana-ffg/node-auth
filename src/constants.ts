@@ -65,6 +65,30 @@ export const APP_CONFIG = {
     SALT_LENGTH: 32, // 256-bit salt
     PBKDF2_ITERATIONS: 200000, // Increase for higher security, but more latency
   },
+  
+  // Rate limiting configuration
+  RATE_LIMIT: {
+    // General rate limit for all endpoints
+    GENERAL: {
+      WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes in milliseconds
+      MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // Maximum requests per window
+      MESSAGE: 'Too many requests from this IP, please try again later.',
+    },
+    
+    // Strict rate limit for authentication endpoints (login, register)
+    AUTH: {
+      WINDOW_MS: parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS || '900000'), // 15 minutes in milliseconds
+      MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_AUTH_MAX_REQUESTS || '5'), // Maximum auth attempts per window
+      MESSAGE: 'Too many authentication attempts from this IP, please try again later.',
+    },
+    
+    // Very strict rate limit for 2FA operations
+    TWO_FA: {
+      WINDOW_MS: parseInt(process.env.RATE_LIMIT_2FA_WINDOW_MS || '900000'), // 15 minutes in milliseconds
+      MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_2FA_MAX_REQUESTS || '3'), // Maximum 2FA attempts per window
+      MESSAGE: 'Too many 2FA attempts from this IP, please try again later.',
+    },
+  },
 } as const;
 
 // Type for the app config to ensure type safety
