@@ -8,18 +8,54 @@
  * Halts the application if any required variables are missing
  */
 function validateEnvironment(): void {
-  const requiredEnvVars = [
-    { name: 'JWT_SECRET', value: process.env.JWT_SECRET },
-  ];
+  // Collect all validation errors to display them at once
+  const errors: string[] = [];
 
-  const missingVars = requiredEnvVars.filter(env => !env.value);
-  
-  if (missingVars.length > 0) {
-    console.error('❌ Missing required environment variables:');
-    missingVars.forEach(env => {
-      console.error(`   - ${env.name}`);
-    });
-    console.error('\nPlease set these environment variables and restart the application.');
+  // JWT secret validation
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    errors.push('JWT_SECRET is required');
+  } else if (jwtSecret.length < 32) {
+    errors.push('JWT_SECRET must be at least 32 characters long');
+  }
+
+  // Database URL validation (Prisma datasource)
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    errors.push('DATABASE_URL is required');
+  } else if (!/^postgresql:\/\//i.test(databaseUrl)) {
+    errors.push('DATABASE_URL must be a valid PostgreSQL connection string starting with "postgresql://"');
+  }
+
+  // Encryption version for new data
+  const encryptionVersion = process.env.ENCRYPTION_VERSION_FOR_NEW_DATA || 'v1';
+  if (encryptionVersion !== 'v1' && encryptionVersion !== 'v2') {
+    errors.push('ENCRYPTION_VERSION_FOR_NEW_DATA must be either "v1" or "v2"');
+  }
+
+  // Encryption keys validation
+  const encryptionKeyV1 = process.env.ENCRYPTION_KEY_V1;
+  if (!encryptionKeyV1) {
+    errors.push('ENCRYPTION_KEY_V1 is required');
+  } else if (encryptionKeyV1.length < 32) {
+    errors.push('ENCRYPTION_KEY_V1 must be at least 32 characters long');
+  }
+
+  const encryptionKeyV2 = process.env.ENCRYPTION_KEY_V2;
+  if (encryptionVersion === 'v2') {
+    if (!encryptionKeyV2) {
+      errors.push('ENCRYPTION_KEY_V2 is required when ENCRYPTION_VERSION_FOR_NEW_DATA is set to "v2"');
+    } else if (encryptionKeyV2.length < 32) {
+      errors.push('ENCRYPTION_KEY_V2 must be at least 32 characters long');
+    }
+  } else if (encryptionKeyV2 && encryptionKeyV2.length < 32) {
+    errors.push('ENCRYPTION_KEY_V2 must be at least 32 characters long when provided');
+  }
+
+  if (errors.length > 0) {
+    console.error('❌ Environment validation failed:');
+    errors.forEach(err => console.error(`   - ${err}`));
+    console.error('\nPlease set these environment variables correctly and restart the application.');
     process.exit(1);
   }
 }

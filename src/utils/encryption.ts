@@ -2,8 +2,6 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { APP_CONFIG } from '../constants';
 
-dotenv.config();
-
 interface EncryptedData {
   encrypted: string;
   iv: string;
@@ -13,7 +11,6 @@ interface EncryptedData {
 
 /**
  * Derives a 32-byte key from the provided password/key string using PBKDF2 with a unique salt
- * Uses OWASP 2024 recommended 600,000 iterations for PBKDF2-HMAC-SHA256
  * @param keyString - The key string from environment variables
  * @param salt - Unique salt for key derivation (must be provided for security)
  * @returns 32-byte key for AES-256

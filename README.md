@@ -221,22 +221,6 @@ src/
 - `npx prisma generate` - Generate Prisma client
 - `npx prisma studio` - Open database browser
 
-## 📋 Roadmap
-
-### Current Focus (WIP)
-- [ ] **Backup Codes** - Recovery codes for 2FA
-- [ ] **Email Verification** - Email confirmation for registration
-- [ ] **Password Reset** - Secure password recovery flow
-- [ ] **Account Lockout** - Protection against brute force attacks
-
-### Future Enhancements
-- [ ] **OAuth Integration** - Google, GitHub social login
-- [ ] **Session Management** - Device tracking and management
-- [ ] **Audit Logging** - Security event logging
-- [ ] **API Rate Limiting per User** - User-specific rate limits
-- [ ] **Docker Support** - Containerized deployment
-- [ ] **Unit & Integration Tests** - Comprehensive test coverage
-
 ## 👨‍💻 About
 
 This project was built as a learning exercise to demonstrate:

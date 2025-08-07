@@ -3,26 +3,26 @@
 ## Authentication Endpoints
 
 ### Register User
-- **POST** `/auth/register`
+- **POST** `/api/auth/register`
 - **Body**: `{ "email": "user@example.com", "password": "SecurePass123!" }`
 
 ### Login User
-- **POST** `/auth/login`
+- **POST** `/api/auth/login`
 - **Body**: `{ "email": "user@example.com", "password": "SecurePass123!" }`
 - **Response**: Returns access token and refresh token (or temp token if 2FA is enabled)
 
 ### Login with 2FA
-- **POST** `/auth/login/2fa`
+- **POST** `/api/auth/login/2fa`
 - **Body**: `{ "otp": "123456", "tempToken": "jwt_token" }`
 
 ### Refresh Token
-- **POST** `/auth/refresh`
+- **POST** `/api/auth/refresh`
 - **Body**: `{ "refreshToken": "uuid_token" }`
 
 ## 2FA Management Endpoints
 
 ### Generate 2FA Secret
-- **POST** `/auth/2fa/generate`
+- **POST** `/api/auth/2fa/generate`
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Body**: `{ "password": "SecurePass123!" }`
 - **Security**: Always requires password verification
@@ -32,20 +32,20 @@
 - **Response**: `{ "otpauthUrl": "...", "qrCodeDataURL": "...", "message": "..." }`
 
 ### Confirm 2FA Setup
-- **POST** `/auth/2fa/confirm`
+- **POST** `/api/auth/2fa/confirm`
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Body**: `{ "otp": "123456" }`
 - **Response**: `{ "message": "2FA enabled successfully", "twoFactorEnabled": true }`
 
 ### Reset 2FA (Requires Password)
-- **POST** `/auth/2fa/reset`
+- **POST** `/api/auth/2fa/reset`
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Body**: `{ "password": "SecurePass123!" }`
 - **Security**: Requires current password verification
 - **Response**: `{ "message": "2FA reset successfully", "otpauthUrl": "...", "qrCodeDataURL": "..." }`
 
 ### Disable 2FA (Requires Password)
-- **POST** `/auth/2fa/disable`
+- **POST** `/api/auth/2fa/disable`
 - **Headers**: `Authorization: Bearer <access_token>`
 - **Body**: `{ "password": "SecurePass123!" }`
 - **Security**: Requires current password verification
@@ -69,17 +69,17 @@
 ## Example Usage Flow
 
 ### Initial 2FA Setup
-1. `POST /auth/2fa/generate` - Provide password to get QR code
+1. `POST /api/auth/2fa/generate` - Provide password to get QR code
 2. Scan QR code with authenticator app
-3. `POST /auth/2fa/confirm` - Confirm with OTP code
+3. `POST /api/auth/2fa/confirm` - Confirm with OTP code
 
 ### Viewing Existing 2FA Setup
-1. `POST /auth/2fa/generate` - Provide password to view existing QR code and secret
+1. `POST /api/auth/2fa/generate` - Provide password to view existing QR code and secret
 
 ### Resetting 2FA (if device lost)
-1. `POST /auth/2fa/reset` - Provide password to get new QR code
+1. `POST /api/auth/2fa/reset` - Provide password to get new QR code
 2. Scan new QR code with authenticator app
-3. `POST /auth/2fa/confirm` - Confirm with new OTP code
+3. `POST /api/auth/2fa/confirm` - Confirm with new OTP code
 
 ### Disabling 2FA
-1. `POST /auth/2fa/disable` - Provide password to disable 2FA 
+1. `POST /api/auth/2fa/disable` - Provide password to disable 2FA

@@ -19,12 +19,6 @@ import { encrypt2FASecret, decrypt2FASecret, serializeEncryptedData, deserialize
 const prisma = new PrismaClient(); // Instantiate Prisma client to interact with the database
 
 /**
- * Loads environment variables from a .env file into process.env.
- * This allows secure configuration of sensitive data like JWT secrets.
- */
-dotenv.config(); // Load environment variables from .env file into process.env
-
-/**
  * Registers a new user by creating a user record in the database.
  * Route: POST /register
  *
