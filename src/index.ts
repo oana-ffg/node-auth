@@ -10,6 +10,7 @@ import helloRoutes from './routes/helloRoutes'; // Import our custom hello route
 import authRoutes from './routes/authRoutes'; // Import our custom auth route
 import { APP_CONFIG } from './constants'; // Import application configuration
 import { generalRateLimit } from './middleware/rateLimitMiddleware'; // Import rate limiting middleware
+import { startScheduledJobs } from './jobs/scheduler'; // Import scheduled jobs
 
 
 const app = express(); // Create an instance of an Express application
@@ -26,4 +27,7 @@ app.get('/', (req: Request, res: Response) => {
 // Start the server and listen on the defined port
 app.listen(APP_CONFIG.API.PORT, () => {
   console.log(`Server running on http://localhost:${APP_CONFIG.API.PORT}`);
+  
+  // Start scheduled jobs after server is running
+  startScheduledJobs();
 });

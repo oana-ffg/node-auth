@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { APP_CONFIG } from '../constants';
 
 export const registerSchema = z.object({
   email: z.email(),
   password: z
     .string()
-    .min(6, 'Password must be at least 6 characters')
+    .min(APP_CONFIG.SECURITY.PASSWORD_MIN_LENGTH, `Password must be at least ${APP_CONFIG.SECURITY.PASSWORD_MIN_LENGTH} characters`)
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),

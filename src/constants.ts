@@ -89,6 +89,12 @@ export const APP_CONFIG = {
       MESSAGE: 'Too many 2FA attempts from this IP, please try again later.',
     },
   },
+  
+  // Cleanup job configuration
+  CLEANUP: {
+    SCHEDULE: process.env.CLEANUP_SCHEDULE || '0 2 * * *', // Daily at 2 AM by default
+    TIMEZONE: process.env.CLEANUP_TIMEZONE || 'America/New_York',
+  },
 } as const;
 
 // Type for the app config to ensure type safety
