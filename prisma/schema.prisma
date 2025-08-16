@@ -27,6 +27,7 @@ model User {
   twoFactorEnabled Boolean  @default(false) 
   encryptionVersion String? @default("v1") // tracks which encryption key version was used
   backupCodes    BackupCode[]
+  passkeys       Passkey[]
 }
 
 model RefreshToken {
@@ -48,4 +49,41 @@ model BackupCode {
   codeHash   String   // bcrypt or similar
   used       Boolean  @default(false)
   createdAt  DateTime @default(now())
+}
+
+model Passkey {
+  id              String   @id @default(cuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  credentialId    String   @unique  // Base64URL-encoded credential ID
+  publicKey       String   // Base64URL-encoded public key
+  counter         BigInt   @default(0)  // Signature counter for replay attack protection
+  deviceType      DeviceType @default(unknown)  // "single_device" or "cross_platform" 
+  backedUp        Boolean  @default(false)  // Whether the credential is backed up
+  transports      String[] // Array of transport methods (usb, nfc, ble, hybrid, internal)
+  name            String?  // User-friendly name for the passkey
+  createdAt       DateTime @default(now())
+  lastUsed        DateTime @default(now())
+
+  @@index([userId])
+  @@index([credentialId])
+}
+
+enum DeviceType {
+  unknown
+  single_device
+  cross_platform
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  challenge   String   @unique  // Base64URL-encoded challenge
+  userId      String?  // Optional - for registration challenges
+  email       String?  // Optional - for authentication challenges with email hint
+  type        String   // "registration" or "authentication"
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Challenge expiration time
+
+  @@index([challenge])
+  @@index([expiresAt]) // For efficient cleanup
 }

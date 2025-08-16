@@ -52,6 +52,54 @@ function validateEnvironment(): void {
     errors.push('ENCRYPTION_KEY_V2 must be at least 32 characters long when provided');
   }
 
+  // WebAuthn environment variables validation
+  const webauthnOrigin = process.env.WEBAUTHN_ORIGIN;
+  if (webauthnOrigin) {
+    try {
+      const originUrl = new URL(webauthnOrigin);
+      
+      // Enforce HTTPS for non-development environments except for localhost/127.0.0.1
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const isLocalhost = originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1';
+      
+      if (!isDevelopment && !isLocalhost && originUrl.protocol !== 'https:') {
+        errors.push('WEBAUTHN_ORIGIN must use HTTPS in non-development environments unless the host is localhost or 127.0.0.1');
+      }
+      
+      // Validate WEBAUTHN_RP_ID if provided
+      const webauthnRpId = process.env.WEBAUTHN_RP_ID;
+      if (webauthnRpId) {
+        const originHost = originUrl.hostname;
+        
+        // Check if RP_ID equals origin host or is a registrable suffix
+        if (webauthnRpId !== originHost && !originHost.endsWith('.' + webauthnRpId)) {
+          errors.push(`WEBAUTHN_RP_ID "${webauthnRpId}" must equal the origin host "${originHost}" or be a registrable suffix of it`);
+        }
+      }
+      
+    } catch (error) {
+      errors.push('WEBAUTHN_ORIGIN must be a valid URL');
+    }
+  }
+
+  // Validate WEBAUTHN_USER_VERIFICATION
+  const webauthnUserVerification = process.env.WEBAUTHN_USER_VERIFICATION;
+  if (webauthnUserVerification) {
+    const validValues = ['required', 'preferred', 'discouraged'];
+    if (!validValues.includes(webauthnUserVerification.toLowerCase())) {
+      errors.push(`WEBAUTHN_USER_VERIFICATION must be one of: ${validValues.join(', ')} (case-insensitive)`);
+    }
+  }
+
+  // Validate WEBAUTHN_TIMEOUT
+  const webauthnTimeout = process.env.WEBAUTHN_TIMEOUT;
+  if (webauthnTimeout) {
+    const timeoutValue = parseInt(webauthnTimeout, 10);
+    if (isNaN(timeoutValue) || timeoutValue <= 0) {
+      errors.push('WEBAUTHN_TIMEOUT must be a positive integer');
+    }
+  }
+
   if (errors.length > 0) {
     console.error('❌ Environment validation failed:');
     errors.forEach(err => console.error(`   - ${err}`));
@@ -63,6 +111,38 @@ function validateEnvironment(): void {
 // Validate environment variables on module load
 validateEnvironment();
 
+// Resolve WebAuthn origin and RP ID defaults in one place to ensure consistency
+const DEFAULT_WEBAUTHN_ORIGIN = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+
+function deriveHostnameFromOrigin(origin: string | undefined): string | undefined {
+  if (!origin) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(origin);
+    return parsed.hostname || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const DEFAULT_WEBAUTHN_RP_ID = process.env.WEBAUTHN_RP_ID
+  || deriveHostnameFromOrigin(DEFAULT_WEBAUTHN_ORIGIN)
+  || 'localhost';
+
+// Allowed values for WebAuthn user verification preference
+const USER_VERIFICATION_VALUES = ['required', 'preferred', 'discouraged'] as const;
+type UserVerification = (typeof USER_VERIFICATION_VALUES)[number];
+
+function isUserVerification(value: string): value is UserVerification {
+  return (USER_VERIFICATION_VALUES as readonly string[]).includes(value);
+}
+
+const RESOLVED_USER_VERIFICATION: UserVerification = (() => {
+  const normalized = (process.env.WEBAUTHN_USER_VERIFICATION || 'preferred').toLowerCase();
+  return isUserVerification(normalized) ? normalized : 'preferred';
+})();
+
 export const APP_CONFIG = {
   // Application name - used in 2FA QR codes and other places where app identification is needed
   NAME: process.env.APP_NAME || 'NodeAuth',
@@ -71,7 +151,7 @@ export const APP_CONFIG = {
   VERSION: process.env.APP_VERSION || '1.0.0',
   
   // Environment
-  ENV: process.env.NODE_ENV || 'development',
+    USER_VERIFICATION: RESOLVED_USER_VERIFICATION,
   
   // API configuration
   API: {
@@ -130,6 +210,23 @@ export const APP_CONFIG = {
   CLEANUP: {
     SCHEDULE: process.env.CLEANUP_SCHEDULE || '0 2 * * *', // Daily at 2 AM by default
     TIMEZONE: process.env.CLEANUP_TIMEZONE || 'America/New_York',
+  },
+  
+  // WebAuthn/Passkey configuration
+  WEBAUTHN: {
+    RP_NAME: process.env.WEBAUTHN_RP_NAME || 'NodeAuth',
+    RP_ID: DEFAULT_WEBAUTHN_RP_ID,
+    ORIGIN: DEFAULT_WEBAUTHN_ORIGIN,
+    TIMEOUT: (() => {
+      const raw = process.env.WEBAUTHN_TIMEOUT;
+      const defaultMs = 60000;
+      const minMs = 1000;
+      const maxMs = 300000;
+      const parsed = raw !== undefined ? parseInt(raw, 10) : defaultMs;
+      const safeValue = Number.isNaN(parsed) || parsed < 0 ? defaultMs : parsed;
+      return Math.max(minMs, Math.min(maxMs, safeValue));
+    })(), // 60 seconds
+    USER_VERIFICATION: RESOLVED_USER_VERIFICATION,
   },
 } as const;
 

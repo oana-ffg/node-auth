@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passkey Test - NodeAuth</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        input, select {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .success {
+            color: #28a745;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .passkey-list {
+            margin-top: 15px;
+        }
+        .passkey-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .auth-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .qr-code {
+            text-align: center;
+            padding: 15px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            margin: 10px 0;
+        }
+        .qr-code img {
+            max-width: 200px;
+            height: auto;
+        }
+        .temp-token-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Passkey Test Interface</h1>
+        <p>Test passkey registration and authentication for NodeAuth</p>
+
+        <!-- Authentication Status -->
+        <div class="section">
+            <h2>Authentication Status</h2>
+            <div id="auth-status">Not authenticated</div>
+            <div id="user-info" style="display: none;" class="auth-info">
+                <strong>Logged in as:</strong> <span id="user-email"></span><br>
+                <strong>User ID:</strong> <span id="user-id"></span><br>
+                <strong>2FA Enabled:</strong> <span id="user-2fa"></span>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Traditional Login -->
+        <div class="section">
+            <h2>Traditional Login</h2>
+            <input type="email" id="login-email" placeholder="Email" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button onclick="traditionalLogin()">Login</button>
+            <div id="login-result"></div>
+        </div>
+
+        <!-- Passkey Authentication -->
+        <div class="section">
+            <h2>🔑 Passkey Authentication</h2>
+            <p>Login with your registered passkey</p>
+            <input type="email" id="auth-email" placeholder="Email (optional)">
+            <button onclick="authenticateWithPasskey()">Authenticate with Passkey</button>
+            <div id="auth-result"></div>
+        </div>
+
+        <!-- Passkey Registration -->
+        <div class="section">
+            <h2>➕ Passkey Registration</h2>
+            <p>Register a new passkey (requires login and password verification)</p>
+            <input type="password" id="passkey-password" placeholder="Current password" required>
+            <input type="text" id="passkey-name" placeholder="Passkey name (optional)">
+            <button onclick="registerPasskey()">Register New Passkey</button>
+            <div id="register-result"></div>
+        </div>
+
+        <!-- 2FA Management -->
+        <div class="section">
+            <h2>🔐 Two-Factor Authentication</h2>
+            <div id="2fa-status">
+                <p><strong>2FA Status:</strong> <span id="2fa-enabled">Unknown</span></p>
+            </div>
+            
+            <!-- Generate/Show 2FA -->
+            <div id="2fa-setup" style="display: none;">
+                <h3>📱 Setup 2FA</h3>
+                <input type="password" id="2fa-password" placeholder="Current password" required>
+                <button onclick="generate2FA()">Generate 2FA Secret</button>
+                <div id="2fa-qr-container" style="margin: 15px 0;"></div>
+                <div id="2fa-confirm-container" style="display: none;">
+                    <input type="text" id="2fa-confirm-code" placeholder="Enter 6-digit code from authenticator" maxlength="6">
+                    <button onclick="confirm2FA()">Confirm & Enable 2FA</button>
+                </div>
+                <div id="2fa-generate-result"></div>
+            </div>
+
+            <!-- 2FA Login -->
+            <div id="2fa-login" style="display: none;">
+                <h3>🔑 Complete 2FA Login</h3>
+                <p>Enter the 6-digit code from your authenticator app:</p>
+                <input type="text" id="2fa-login-code" placeholder="000000" maxlength="6">
+                <button onclick="complete2FALogin()">Complete Login</button>
+                <div id="2fa-login-result"></div>
+            </div>
+
+            <!-- 2FA Management -->
+            <div id="2fa-management" style="display: none;">
+                <h3>⚙️ Manage 2FA</h3>
+                <input type="password" id="2fa-manage-password" placeholder="Current password" required>
+                <button onclick="reset2FA()">Reset 2FA</button>
+                <button onclick="disable2FA()" style="background-color: #dc3545;">Disable 2FA</button>
+                <div id="2fa-manage-result"></div>
+            </div>
+        </div>
+
+        <!-- Passkey Management -->
+        <div class="section">
+            <h2>📋 Manage Passkeys</h2>
+            <button onclick="listPasskeys()">Refresh Passkey List</button>
+            <div id="passkey-list" class="passkey-list"></div>
+        </div>
+
+        <!-- System Info -->
+        <div class="section">
+            <h2>ℹ️ System Information</h2>
+            <p><strong>WebAuthn Support:</strong> <span id="webauthn-support"></span></p>
+            <p><strong>Platform:</strong> <span id="platform-info"></span></p>
+            <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+        </div>
+    </div>
+
+    <script type="module">
+        // Global state
+        let accessToken = localStorage.getItem('accessToken');
+        let refreshToken = localStorage.getItem('refreshToken');
+        let userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemSupport();
+            updateAuthStatus();
+            if (accessToken) {
+                listPasskeys();
+            }
+        });
+
+        // Check WebAuthn support
+        function checkSystemSupport() {
+            const webauthnSupported = window.PublicKeyCredential !== undefined;
+            document.getElementById('webauthn-support').textContent = webauthnSupported ? '✅ Supported' : '❌ Not Supported';
+            document.getElementById('platform-info').textContent = navigator.platform;
+            document.getElementById('user-agent').textContent = navigator.userAgent;
+        }
+
+        // Update authentication status display
+        function updateAuthStatus() {
+            const statusDiv = document.getElementById('auth-status');
+            const userInfoDiv = document.getElementById('user-info');
+            
+            if (accessToken && userInfo) {
+                statusDiv.textContent = 'Authenticated ✅';
+                document.getElementById('user-email').textContent = userInfo.email;
+                document.getElementById('user-id').textContent = userInfo.id;
+                document.getElementById('user-2fa').textContent = userInfo.twoFactorEnabled ? 'Yes' : 'No';
+                userInfoDiv.style.display = 'block';
+                
+                // Update 2FA UI
+                update2FAStatus();
+            } else {
+                statusDiv.textContent = 'Not authenticated ❌';
+                userInfoDiv.style.display = 'none';
+                
+                // Hide 2FA sections when not authenticated
+                document.getElementById('2fa-setup').style.display = 'none';
+                document.getElementById('2fa-management').style.display = 'none';
+                document.getElementById('2fa-login').style.display = 'none';
+            }
+        }
+
+        // Update 2FA status and show appropriate sections
+        function update2FAStatus() {
+            const is2FAEnabled = userInfo && userInfo.twoFactorEnabled;
+            document.getElementById('2fa-enabled').textContent = is2FAEnabled ? 'Enabled ✅' : 'Disabled ❌';
+            
+            // Show appropriate sections based on 2FA status
+            if (is2FAEnabled) {
+                document.getElementById('2fa-setup').style.display = 'none';
+                document.getElementById('2fa-management').style.display = 'block';
+            } else {
+                document.getElementById('2fa-setup').style.display = 'block';
+                document.getElementById('2fa-management').style.display = 'none';
+            }
+        }
+
+        // Traditional login
+        window.traditionalLogin = async function() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultDiv = document.getElementById('login-result');
+
+            if (!email || !password) {
+                showMessage(resultDiv, 'Please enter email and password', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.requires2FA) {
+                        // Store temporary token and show 2FA input
+                        localStorage.setItem('tempToken', data.tempToken);
+                        userInfo = data.user; // Partial user info
+                        document.getElementById('2fa-login').style.display = 'block';
+                        showMessage(resultDiv, '2FA verification required', 'temp-token-notice');
+                    } else {
+                        accessToken = data.accessToken;
+                        refreshToken = data.refreshToken;
+                        userInfo = data.user;
+                        
+                        localStorage.setItem('accessToken', accessToken);
+                        localStorage.setItem('refreshToken', refreshToken);
+                        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                        
+                        updateAuthStatus();
+                        listPasskeys();
+                        showMessage(resultDiv, 'Login successful!', 'success');
+                    }
+                } else {
+                    showMessage(resultDiv, data.error || 'Login failed', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Logout
+        window.logout = function() {
+            accessToken = null;
+            refreshToken = null;
+            userInfo = null;
+            
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('tempToken');
+            
+            updateAuthStatus();
+            document.getElementById('passkey-list').innerHTML = '';
+            
+            // Clear 2FA forms
+            document.getElementById('2fa-password').value = '';
+            document.getElementById('2fa-confirm-code').value = '';
+            document.getElementById('2fa-login-code').value = '';
+            document.getElementById('2fa-manage-password').value = '';
+            document.getElementById('2fa-qr-container').innerHTML = '';
+            document.getElementById('2fa-confirm-container').style.display = 'none';
+            
+            // Clear passkey forms
+            document.getElementById('passkey-password').value = '';
+            document.getElementById('passkey-name').value = '';
+        };
+
+        // Register passkey
+        window.registerPasskey = async function() {
+            const password = document.getElementById('passkey-password').value;
+            const resultDiv = document.getElementById('register-result');
+            
+            if (!password) {
+                showMessage(resultDiv, 'Please enter your current password', 'error');
+                return;
+            }
+            
+            if (!accessToken) {
+                showMessage(resultDiv, 'Please login first', 'error');
+                return;
+            }
+
+            if (!window.PublicKeyCredential) {
+                showMessage(resultDiv, 'WebAuthn not supported on this browser', 'error');
+                return;
+            }
+
+            try {
+                // Step 1: Start registration
+                const startResponse = await fetch('/api/passkey/register/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        password: password,
+                        name: document.getElementById('passkey-name').value || undefined
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    const error = await startResponse.json();
+                    throw new Error(error.error || 'Registration start failed');
+                }
+
+                const options = await startResponse.json();
+                
+                // Step 2: Create credential
+                const credential = await navigator.credentials.create({
+                    publicKey: {
+                        ...options,
+                        challenge: new Uint8Array(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0))),
+                        user: {
+                            ...options.user,
+                            id: new Uint8Array(atob(options.user.id.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0)))
+                        },
+                        excludeCredentials: options.excludeCredentials?.map(cred => ({
+                            ...cred,
+                            id: new Uint8Array(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0)))
+                        })) || []
+                    }
+                });
+
+                // Step 3: Complete registration
+                const completeResponse = await fetch('/api/passkey/register/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        credential: {
+                            id: credential.id,
+                            rawId: arrayBufferToBase64Url(credential.rawId),
+                            response: {
+                                attestationObject: arrayBufferToBase64Url(credential.response.attestationObject),
+                                clientDataJSON: arrayBufferToBase64Url(credential.response.clientDataJSON),
+                                transports: credential.response.getTransports ? credential.response.getTransports() : []
+                            },
+                            type: credential.type,
+                            authenticatorAttachment: credential.authenticatorAttachment
+                        },
+                        name: document.getElementById('passkey-name').value || undefined
+                    })
+                });
+
+                const result = await completeResponse.json();
+
+                if (completeResponse.ok) {
+                    showMessage(resultDiv, 'Passkey registered successfully!', 'success');
+                    listPasskeys();
+                    document.getElementById('passkey-password').value = '';
+                    document.getElementById('passkey-name').value = '';
+                } else {
+                    throw new Error(result.error || 'Registration completion failed');
+                }
+            } catch (err) {
+                console.error('Passkey registration error:', err);
+                showMessage(resultDiv, 'Registration failed: ' + err.message, 'error');
+            }
+        };
+
+        // Authenticate with passkey
+        window.authenticateWithPasskey = async function() {
+            const resultDiv = document.getElementById('auth-result');
+            
+            if (!window.PublicKeyCredential) {
+                showMessage(resultDiv, 'WebAuthn not supported on this browser', 'error');
+                return;
+            }
+
+            try {
+                // Step 1: Start authentication
+                const startResponse = await fetch('/api/passkey/authenticate/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('auth-email').value || undefined
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    const error = await startResponse.json();
+                    throw new Error(error.error || 'Authentication start failed');
+                }
+
+                const options = await startResponse.json();
+                
+                // Step 2: Get assertion
+                const assertion = await navigator.credentials.get({
+                    publicKey: {
+                        ...options,
+                        challenge: new Uint8Array(atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0))),
+                        allowCredentials: options.allowCredentials?.map(cred => ({
+                            ...cred,
+                            id: new Uint8Array(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => c.charCodeAt(0)))
+                        })) || []
+                    }
+                });
+
+                // Step 3: Complete authentication
+                const completeResponse = await fetch('/api/passkey/authenticate/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        credential: {
+                            id: assertion.id,
+                            rawId: arrayBufferToBase64Url(assertion.rawId),
+                            response: {
+                                authenticatorData: arrayBufferToBase64Url(assertion.response.authenticatorData),
+                                clientDataJSON: arrayBufferToBase64Url(assertion.response.clientDataJSON),
+                                signature: arrayBufferToBase64Url(assertion.response.signature),
+                                userHandle: assertion.response.userHandle ? arrayBufferToBase64Url(assertion.response.userHandle) : null
+                            },
+                            type: assertion.type,
+                            authenticatorAttachment: assertion.authenticatorAttachment
+                        }
+                    })
+                });
+
+                const result = await completeResponse.json();
+
+                if (completeResponse.ok) {
+                    accessToken = result.accessToken;
+                    refreshToken = result.refreshToken;
+                    userInfo = result.user;
+                    
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', refreshToken);
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    
+                    updateAuthStatus();
+                    listPasskeys();
+                    showMessage(resultDiv, 'Passkey authentication successful!', 'success');
+                } else {
+                    throw new Error(result.error || 'Authentication completion failed');
+                }
+            } catch (err) {
+                console.error('Passkey authentication error:', err);
+                showMessage(resultDiv, 'Authentication failed: ' + err.message, 'error');
+            }
+        };
+
+        // List passkeys
+        window.listPasskeys = async function() {
+            if (!accessToken) return;
+
+            try {
+                const response = await fetch('/api/passkey/list', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayPasskeys(data.passkeys);
+                } else {
+                    const error = await response.json();
+                    console.error('Failed to list passkeys:', error);
+                }
+            } catch (err) {
+                console.error('Network error listing passkeys:', err);
+            }
+        };
+
+        // Display passkeys
+        function displayPasskeys(passkeys) {
+            const listDiv = document.getElementById('passkey-list');
+            
+            if (!passkeys || passkeys.length === 0) {
+                listDiv.innerHTML = '<p>No passkeys registered</p>';
+                return;
+            }
+
+            listDiv.innerHTML = passkeys.map(passkey => `
+                <div class="passkey-item">
+                    <div>
+                        <strong>${passkey.name}</strong><br>
+                        <small>Created: ${new Date(passkey.createdAt).toLocaleString()}</small><br>
+                        <small>Last used: ${new Date(passkey.lastUsed).toLocaleString()}</small><br>
+                        <small>Device type: ${passkey.deviceType}, Backed up: ${passkey.backedUp ? 'Yes' : 'No'}</small>
+                    </div>
+                    <div>
+                        <button onclick="deletePasskey('${passkey.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Delete passkey
+        window.deletePasskey = async function(passkeyId) {
+            const password = prompt('Enter your password to delete this passkey:');
+            if (!password) return;
+
+            try {
+                const response = await fetch(`/api/passkey/${passkeyId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                if (response.ok) {
+                    alert('Passkey deleted successfully');
+                    listPasskeys();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to delete passkey: ' + (error.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        };
+
+        // 2FA Functions
+        
+        // Generate 2FA secret
+        window.generate2FA = async function() {
+            const password = document.getElementById('2fa-password').value;
+            const resultDiv = document.getElementById('2fa-generate-result');
+            
+            if (!password) {
+                showMessage(resultDiv, 'Please enter your current password', 'error');
+                return;
+            }
+
+            if (!accessToken) {
+                showMessage(resultDiv, 'Please login first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/2fa/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show QR code
+                    const qrContainer = document.getElementById('2fa-qr-container');
+                    qrContainer.innerHTML = `
+                        <div class="qr-code">
+                            <p><strong>Scan this QR code with your authenticator app:</strong></p>
+                            <img src="${data.qrCodeDataURL}" alt="2FA QR Code">
+                            <p><small>Or manually enter: <code>${data.otpauthUrl}</code></small></p>
+                        </div>
+                    `;
+                    
+                    // Show confirmation input
+                    document.getElementById('2fa-confirm-container').style.display = 'block';
+                    
+                    if (data.message) {
+                        showMessage(resultDiv, data.message, 'success');
+                    } else {
+                        showMessage(resultDiv, '2FA secret generated! Scan QR code and enter verification code.', 'success');
+                    }
+                } else {
+                    showMessage(resultDiv, data.error || 'Failed to generate 2FA secret', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Confirm 2FA setup
+        window.confirm2FA = async function() {
+            const otp = document.getElementById('2fa-confirm-code').value;
+            const resultDiv = document.getElementById('2fa-generate-result');
+            
+            if (!otp || otp.length !== 6) {
+                showMessage(resultDiv, 'Please enter a 6-digit code', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/2fa/confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ otp })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update user info
+                    userInfo.twoFactorEnabled = true;
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    
+                    // Reset UI
+                    document.getElementById('2fa-password').value = '';
+                    document.getElementById('2fa-confirm-code').value = '';
+                    document.getElementById('2fa-qr-container').innerHTML = '';
+                    document.getElementById('2fa-confirm-container').style.display = 'none';
+                    
+                    updateAuthStatus();
+                    showMessage(resultDiv, '2FA enabled successfully!', 'success');
+                } else {
+                    showMessage(resultDiv, data.error || 'Failed to confirm 2FA', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Complete 2FA login
+        window.complete2FALogin = async function() {
+            const otp = document.getElementById('2fa-login-code').value;
+            const tempToken = localStorage.getItem('tempToken');
+            const resultDiv = document.getElementById('2fa-login-result');
+            
+            if (!otp || otp.length !== 6) {
+                showMessage(resultDiv, 'Please enter a 6-digit code', 'error');
+                return;
+            }
+
+            if (!tempToken) {
+                showMessage(resultDiv, 'No temporary token found. Please login again.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login/2fa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ otp, tempToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Complete login
+                    accessToken = data.accessToken;
+                    refreshToken = data.refreshToken;
+                    userInfo = data.user;
+                    
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', refreshToken);
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    localStorage.removeItem('tempToken');
+                    
+                    // Reset UI
+                    document.getElementById('2fa-login-code').value = '';
+                    document.getElementById('2fa-login').style.display = 'none';
+                    
+                    updateAuthStatus();
+                    listPasskeys();
+                    showMessage(resultDiv, 'Login completed successfully!', 'success');
+                } else {
+                    showMessage(resultDiv, data.error || '2FA verification failed', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Reset 2FA
+        window.reset2FA = async function() {
+            const password = document.getElementById('2fa-manage-password').value;
+            const resultDiv = document.getElementById('2fa-manage-result');
+            
+            if (!password) {
+                showMessage(resultDiv, 'Please enter your current password', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reset your 2FA? You will need to reconfigure your authenticator app.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/2fa/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update user info
+                    userInfo.twoFactorEnabled = false;
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    
+                    document.getElementById('2fa-manage-password').value = '';
+                    updateAuthStatus();
+                    showMessage(resultDiv, data.message || '2FA reset successfully', 'success');
+                } else {
+                    showMessage(resultDiv, data.error || 'Failed to reset 2FA', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Disable 2FA
+        window.disable2FA = async function() {
+            const password = document.getElementById('2fa-manage-password').value;
+            const resultDiv = document.getElementById('2fa-manage-result');
+            
+            if (!password) {
+                showMessage(resultDiv, 'Please enter your current password', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to disable 2FA? This will make your account less secure.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/2fa/disable', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update user info
+                    userInfo.twoFactorEnabled = false;
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    
+                    document.getElementById('2fa-manage-password').value = '';
+                    updateAuthStatus();
+                    showMessage(resultDiv, '2FA disabled successfully', 'success');
+                } else {
+                    showMessage(resultDiv, data.error || 'Failed to disable 2FA', 'error');
+                }
+            } catch (err) {
+                showMessage(resultDiv, 'Network error: ' + err.message, 'error');
+            }
+        };
+
+        // Helper functions
+        function arrayBufferToBase64Url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        function showMessage(element, message, type) {
+            let className = type;
+            if (type === 'temp-token-notice') {
+                className = 'temp-token-notice';
+            }
+            element.innerHTML = `<div class="${className}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
