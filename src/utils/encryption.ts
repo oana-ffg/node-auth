@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import dotenv from 'dotenv';
 import { APP_CONFIG } from '../constants';
 
 interface EncryptedData {
@@ -17,21 +16,6 @@ interface EncryptedData {
  */
 function deriveKey(keyString: string, salt: Buffer): Buffer {
   return crypto.pbkdf2Sync(keyString, salt, APP_CONFIG.ENCRYPTION.PBKDF2_ITERATIONS, APP_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256');
-}
-
-/**
- * Async version of key derivation for better performance in high-concurrency scenarios
- * @param keyString - The key string from environment variables
- * @param salt - Unique salt for key derivation (must be provided for security)
- * @returns Promise resolving to 32-byte key for AES-256
- */
-async function deriveKeyAsync(keyString: string, salt: Buffer): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    crypto.pbkdf2(keyString, salt, APP_CONFIG.ENCRYPTION.PBKDF2_ITERATIONS, APP_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256', (err, derivedKey) => {
-      if (err) reject(err);
-      else resolve(derivedKey);
-    });
-  });
 }
 
 /**
@@ -187,84 +171,4 @@ export function deserializeEncryptedData(serializedData: string): EncryptedData 
   } catch (error) {
     throw new Error(`Failed to deserialize encrypted data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-}
-
-/**
- * Async version of encryptSecret for high-concurrency scenarios
- * @param text - The text to encrypt
- * @param version - The encryption key version to use ('v1' or 'v2')
- * @returns Promise resolving to object containing encrypted data, IV, authentication tag, and unique salt
- * @throws Error if encryption fails
- */
-export async function encryptSecretAsync(text: string, version: string): Promise<EncryptedData> {
-  try {
-    // Generate unique salt for this encryption operation
-    const salt = crypto.randomBytes(APP_CONFIG.ENCRYPTION.SALT_LENGTH);
-    const key = await deriveKeyAsync(getKeyString(version), salt);
-    const iv = crypto.randomBytes(APP_CONFIG.ENCRYPTION.IV_LENGTH);
-    const cipher = crypto.createCipheriv(APP_CONFIG.ENCRYPTION.ALGORITHM, key, iv);
-    cipher.setAAD(Buffer.from(version)); // Use version as additional authenticated data
-    
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    const tag = cipher.getAuthTag();
-    
-    return {
-      encrypted,
-      iv: iv.toString('hex'),
-      tag: tag.toString('hex'),
-      salt: salt.toString('hex')
-    };
-  } catch (error) {
-    throw new Error(`Failed to encrypt secret with version ${version}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Async version of decryptSecret for high-concurrency scenarios
- * @param encryptedData - Object containing encrypted data, IV, authentication tag, and salt
- * @param version - The encryption key version that was used ('v1' or 'v2')
- * @returns Promise resolving to the decrypted text
- * @throws Error if decryption fails or authentication fails
- */
-export async function decryptSecretAsync(encryptedData: EncryptedData, version: string): Promise<string> {
-  try {
-    // Use the same salt that was used during encryption
-    const salt = Buffer.from(encryptedData.salt, 'hex');
-    const key = await deriveKeyAsync(getKeyString(version), salt);
-    const iv = Buffer.from(encryptedData.iv, 'hex');
-    const decipher = crypto.createDecipheriv(APP_CONFIG.ENCRYPTION.ALGORITHM, key, iv);
-    
-    decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
-    decipher.setAAD(Buffer.from(version)); // Use same version as AAD
-    
-    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  } catch (error) {
-    throw new Error(`Failed to decrypt secret with version ${version}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Helper function to get the key string for a version (used by async functions)
- * @param version - The key version ('v1' or 'v2')
- * @returns The key string from environment variables
- * @throws Error if key not found
- */
-function getKeyString(version: string): string {
-  const keyEnvVar = version === 'v1' ? 'ENCRYPTION_KEY_V1' : 'ENCRYPTION_KEY_V2';
-  const keyString = process.env[keyEnvVar];
-  
-  if (!keyString) {
-    throw new Error(`Encryption key ${keyEnvVar} not found in environment variables`);
-  }
-  
-  if (keyString.length < 32) {
-    throw new Error(`Encryption key ${keyEnvVar} must be at least 32 characters long`);
-  }
-  
-  return keyString;
 }

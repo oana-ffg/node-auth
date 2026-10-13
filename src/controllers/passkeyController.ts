@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, DeviceType } from '../generated/prisma';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { APP_CONFIG } from '../constants';
+import { APP_CONFIG, parseDuration } from '../constants';
 import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
@@ -406,7 +406,7 @@ export const completePasskeyAuthentication = async (req: Request, res: Response)
     // Generate and store refresh token
     const refreshToken = crypto.randomUUID();
     const refreshTokenExpiry = new Date();
-    refreshTokenExpiry.setTime(refreshTokenExpiry.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    refreshTokenExpiry.setTime(refreshTokenExpiry.getTime() + parseDuration(APP_CONFIG.JWT.REFRESH_EXPIRES_IN));
 
     await prisma.refreshToken.create({
       data: {

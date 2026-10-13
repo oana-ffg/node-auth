@@ -29,7 +29,16 @@ export const verifyToken = (
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, APP_CONFIG.JWT.SECRET) as { userId: string };
+    const decoded = jwt.verify(token, APP_CONFIG.JWT.SECRET);
+    // A signature alone does not make a 2FA challenge an access token.
+    if (
+      typeof decoded !== 'object' || decoded === null ||
+      typeof decoded.userId !== 'string' || decoded.userId.trim() === '' ||
+      'temp' in decoded || 'purpose' in decoded
+    ) {
+      res.status(401).json({ error: 'Invalid access token' });
+      return;
+    }
     req.userId = decoded.userId;
     next();
   } catch (err) {

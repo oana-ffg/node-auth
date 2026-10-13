@@ -147,15 +147,8 @@ export const APP_CONFIG = {
   // Application name - used in 2FA QR codes and other places where app identification is needed
   NAME: process.env.APP_NAME || 'NodeAuth',
   
-  // Application version - useful for API responses and logging
-  VERSION: process.env.APP_VERSION || '1.0.0',
-  
-  // Environment
-    USER_VERIFICATION: RESOLVED_USER_VERIFICATION,
-  
   // API configuration
   API: {
-    PREFIX: '/api',
     PORT: process.env.PORT || 3000,
   },
   
@@ -176,7 +169,6 @@ export const APP_CONFIG = {
   ENCRYPTION: {
     ALGORITHM: 'aes-256-gcm',
     IV_LENGTH: 12, // For GCM, this is 12 or 16 bytes
-    TAG_LENGTH: 16, // GCM authentication tag length
     KEY_LENGTH: 32, // 256 bits
     SALT_LENGTH: 32, // 256-bit salt
     PBKDF2_ITERATIONS: 200000, // Increase for higher security, but more latency

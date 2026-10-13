@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt'; // Import bcrypt for hashing and comparing password
 import { PrismaClient } from '../generated/prisma'; // Import Prisma client for database interactions
 import crypto from 'crypto'; // Add this import at the top
 import jwt from 'jsonwebtoken'; // Import jsonwebtoken for creating and verifying JWT tokens
-import dotenv from 'dotenv'; // Import dotenv to load environment variables from .env file
 import { registerSchema, loginSchema, login2FASchema, refreshSchema, confirm2FASchema, reset2FASchema, disable2FASchema, generate2FASchema, deleteAccountSchema } from '../schemas/authSchemas'; // Import our custom auth schemas
 import { z } from 'zod';
 import speakeasy from 'speakeasy';

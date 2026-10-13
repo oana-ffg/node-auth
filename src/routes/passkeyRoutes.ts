@@ -9,21 +9,21 @@ import {
   renamePasskey,
 } from '../controllers/passkeyController';
 import { verifyToken } from '../middleware/authMiddleware';
-import { authRateLimit, generalRateLimit } from '../middleware/rateLimitMiddleware';
+import { authRateLimit } from '../middleware/rateLimitMiddleware';
 
 const router = express.Router();
 
 // Passkey registration routes (require authentication)
-router.post('/register/start', verifyToken, generalRateLimit, startPasskeyRegistration);
-router.post('/register/complete', verifyToken, generalRateLimit, completePasskeyRegistration);
+router.post('/register/start', verifyToken, startPasskeyRegistration);
+router.post('/register/complete', verifyToken, completePasskeyRegistration);
 
 // Passkey authentication routes (public)
 router.post('/authenticate/start', authRateLimit, startPasskeyAuthentication);
 router.post('/authenticate/complete', authRateLimit, completePasskeyAuthentication);
 
 // Passkey management routes (require authentication)
-router.get('/list', verifyToken, generalRateLimit, listPasskeys);
-router.delete('/:id', verifyToken, generalRateLimit, deletePasskey);
-router.patch('/:id/rename', verifyToken, generalRateLimit, renamePasskey);
+router.get('/list', verifyToken, listPasskeys);
+router.delete('/:id', verifyToken, deletePasskey);
+router.patch('/:id/rename', verifyToken, renamePasskey);
 
 export default router;
