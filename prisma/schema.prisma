@@ -40,7 +40,6 @@ model RefreshToken {
   revoked        Boolean         @default(false)
 
   @@index([userId])
-  @@index([expiresAt]) // For efficient cleanup
 }
 
 model BackupCode {
