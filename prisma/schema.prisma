@@ -40,6 +40,7 @@ model RefreshToken {
   revoked        Boolean         @default(false)
 
   @@index([userId])
+  @@index([expiresAt]) // For efficient cleanup
 }
 
 model BackupCode {
@@ -66,7 +67,6 @@ model Passkey {
   lastUsed        DateTime @default(now())
 
   @@index([userId])
-  @@index([credentialId])
 }
 
 enum DeviceType {
@@ -84,6 +84,5 @@ model Challenge {
   createdAt   DateTime @default(now())
   expiresAt   DateTime // Challenge expiration time
 
-  @@index([challenge])
   @@index([expiresAt]) // For efficient cleanup
 }

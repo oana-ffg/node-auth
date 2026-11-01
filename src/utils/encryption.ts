@@ -1,5 +1,8 @@
 import crypto from 'crypto';
+import { promisify } from 'util';
 import { APP_CONFIG } from '../constants';
+
+const pbkdf2 = promisify(crypto.pbkdf2);
 
 interface EncryptedData {
   encrypted: string;
@@ -14,8 +17,8 @@ interface EncryptedData {
  * @param salt - Unique salt for key derivation (must be provided for security)
  * @returns 32-byte key for AES-256
  */
-function deriveKey(keyString: string, salt: Buffer): Buffer {
-  return crypto.pbkdf2Sync(keyString, salt, APP_CONFIG.ENCRYPTION.PBKDF2_ITERATIONS, APP_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256');
+function deriveKey(keyString: string, salt: Buffer): Promise<Buffer> {
+  return pbkdf2(keyString, salt, APP_CONFIG.ENCRYPTION.PBKDF2_ITERATIONS, APP_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256');
 }
 
 /**
@@ -25,7 +28,7 @@ function deriveKey(keyString: string, salt: Buffer): Buffer {
  * @returns The derived encryption key
  * @throws Error if the key is not found or invalid
  */
-function getEncryptionKey(version: string, salt: Buffer): Buffer {
+async function getEncryptionKey(version: string, salt: Buffer): Promise<Buffer> {
   const keyEnvVar = version === 'v1' ? 'ENCRYPTION_KEY_V1' : 'ENCRYPTION_KEY_V2';
   const keyString = process.env[keyEnvVar];
   
@@ -44,7 +47,7 @@ function getEncryptionKey(version: string, salt: Buffer): Buffer {
  * Gets the current encryption version for new data from environment variables
  * @returns The encryption version to use for new data ('v1' or 'v2')
  */
-export function getCurrentEncryptionVersion(): string {
+function getCurrentEncryptionVersion(): string {
   const version = process.env.ENCRYPTION_VERSION_FOR_NEW_DATA || 'v1';
   
   if (version !== 'v1' && version !== 'v2') {
@@ -61,11 +64,11 @@ export function getCurrentEncryptionVersion(): string {
  * @returns Object containing encrypted data, IV, authentication tag, and unique salt
  * @throws Error if encryption fails
  */
-export function encryptSecret(text: string, version: string): EncryptedData {
+async function encryptSecret(text: string, version: string): Promise<EncryptedData> {
   try {
     // Generate unique salt for this encryption operation
     const salt = crypto.randomBytes(APP_CONFIG.ENCRYPTION.SALT_LENGTH);
-    const key = getEncryptionKey(version, salt);
+    const key = await getEncryptionKey(version, salt);
     const iv = crypto.randomBytes(APP_CONFIG.ENCRYPTION.IV_LENGTH);
     const cipher = crypto.createCipheriv(APP_CONFIG.ENCRYPTION.ALGORITHM, key, iv);
     cipher.setAAD(Buffer.from(version)); // Use version as additional authenticated data
@@ -93,11 +96,11 @@ export function encryptSecret(text: string, version: string): EncryptedData {
  * @returns The decrypted text
  * @throws Error if decryption fails or authentication fails
  */
-export function decryptSecret(encryptedData: EncryptedData, version: string): string {
+async function decryptSecret(encryptedData: EncryptedData, version: string): Promise<string> {
   try {
     // Use the same salt that was used during encryption
     const salt = Buffer.from(encryptedData.salt, 'hex');
-    const key = getEncryptionKey(version, salt);
+    const key = await getEncryptionKey(version, salt);
     const iv = Buffer.from(encryptedData.iv, 'hex');
     const decipher = crypto.createDecipheriv(APP_CONFIG.ENCRYPTION.ALGORITHM, key, iv);
     
@@ -118,9 +121,9 @@ export function decryptSecret(encryptedData: EncryptedData, version: string): st
  * @param secret - The base32 2FA secret to encrypt
  * @returns Object containing encrypted data and version used
  */
-export function encrypt2FASecret(secret: string): { encryptedData: EncryptedData; version: string } {
+export async function encrypt2FASecret(secret: string): Promise<{ encryptedData: EncryptedData; version: string }> {
   const version = getCurrentEncryptionVersion();
-  const encryptedData = encryptSecret(secret, version);
+  const encryptedData = await encryptSecret(secret, version);
   
   return {
     encryptedData,
@@ -134,7 +137,7 @@ export function encrypt2FASecret(secret: string): { encryptedData: EncryptedData
  * @param version - The encryption version that was used
  * @returns The decrypted base32 2FA secret
  */
-export function decrypt2FASecret(encryptedData: EncryptedData, version: string): string {
+export function decrypt2FASecret(encryptedData: EncryptedData, version: string): Promise<string> {
   return decryptSecret(encryptedData, version);
 }
 
