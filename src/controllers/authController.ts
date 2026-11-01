@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'; // Import types for request and response objects from Express
 import bcrypt from 'bcrypt'; // Import bcrypt for hashing and comparing passwords securely
-import { PrismaClient } from '../generated/prisma'; // Import Prisma client for database interactions
+import { prisma } from '../services/prisma';
 import crypto from 'crypto'; // Add this import at the top
 import jwt from 'jsonwebtoken'; // Import jsonwebtoken for creating and verifying JWT tokens
 import { registerSchema, loginSchema, login2FASchema, refreshSchema, confirm2FASchema, reset2FASchema, disable2FASchema, generate2FASchema, deleteAccountSchema } from '../schemas/authSchemas'; // Import our custom auth schemas
@@ -10,12 +10,6 @@ import qrcode from 'qrcode';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { APP_CONFIG, parseDuration } from '../constants';
 import { encrypt2FASecret, decrypt2FASecret, serializeEncryptedData, deserializeEncryptedData } from '../utils/encryption';
-
-/**
- * Prisma client instance used to interact with the database.
- * Provides methods to perform CRUD operations on the database tables.
- */
-const prisma = new PrismaClient(); // Instantiate Prisma client to interact with the database
 
 /**
  * Registers a new user by creating a user record in the database.
@@ -175,7 +169,7 @@ export const loginWith2FA = async (req: Request, res: Response) => {
     let decryptedSecret: string;
     try {
       const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
-      decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
+      decryptedSecret = await decrypt2FASecret(encryptedData, user.encryptionVersion);
     } catch (error) {
       console.error('Failed to decrypt 2FA secret during login:', error);
       return res.status(500).json({ error: 'Authentication system error.' });
@@ -262,7 +256,6 @@ export const refreshTokenHandler = async (req: Request, res: Response) => {
   try {
     const existingToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
-      include: { user: true },
     });
 
     if (!existingToken) {
@@ -343,7 +336,7 @@ export const generate2FASecret = async (req: AuthenticatedRequest, res: Response
     try {
       // Decrypt the existing secret
       const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
-      const decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
+      const decryptedSecret = await decrypt2FASecret(encryptedData, user.encryptionVersion);
 
       const secret = {
         base32: decryptedSecret,
@@ -377,7 +370,7 @@ export const generate2FASecret = async (req: AuthenticatedRequest, res: Response
 
   try {
     // Encrypt the secret with current version
-    const { encryptedData, version } = encrypt2FASecret(secret.base32);
+    const { encryptedData, version } = await encrypt2FASecret(secret.base32);
     const serializedData = serializeEncryptedData(encryptedData);
 
     await prisma.user.update({
@@ -433,7 +426,7 @@ export const confirm2FA = async (req: AuthenticatedRequest, res: Response) => {
     let decryptedSecret: string;
     try {
       const encryptedData = deserializeEncryptedData(user.twoFactorSecret);
-      decryptedSecret = decrypt2FASecret(encryptedData, user.encryptionVersion);
+      decryptedSecret = await decrypt2FASecret(encryptedData, user.encryptionVersion);
     } catch (error) {
       console.error('Failed to decrypt 2FA secret during confirmation:', error);
       return res.status(500).json({ error: 'Authentication system error.' });
@@ -507,7 +500,7 @@ export const reset2FA = async (req: AuthenticatedRequest, res: Response) => {
 
     try {
       // Encrypt the new secret with current version
-      const { encryptedData, version } = encrypt2FASecret(secret.base32);
+      const { encryptedData, version } = await encrypt2FASecret(secret.base32);
       const serializedData = serializeEncryptedData(encryptedData);
 
       // Update user with new secret and disable 2FA until confirmed

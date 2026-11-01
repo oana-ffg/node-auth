@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient, DeviceType } from '../generated/prisma';
+import { DeviceType } from '../generated/prisma';
+import { prisma } from '../services/prisma';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { APP_CONFIG, parseDuration } from '../constants';
 import { z } from 'zod';
@@ -33,8 +34,6 @@ import {
   passkeyDeleteSchema,
   passkeyRenameSchema,
 } from '../schemas/authSchemas';
-
-const prisma = new PrismaClient();
 
 // Helper function to create challenge expiration date
 function getChallengeExpiration(): Date {
