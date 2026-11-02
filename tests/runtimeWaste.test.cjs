@@ -15,10 +15,8 @@ let storedToken = { userId: 'audit-user', expiresAt: new Date('2100-01-01') };
 const prisma = {
   refreshToken: {
     findUnique: async args => { lookups.push(args); return storedToken; },
-    delete: async args => { writes.push(args); return {}; },
-    create: async args => { writes.push(args); return {}; },
+    update: async args => { writes.push(args); return {}; },
   },
-  $transaction: operations => Promise.all(operations),
 };
 const load = Module._load;
 Module._load = function(name, ...args) {
@@ -60,7 +58,7 @@ test('100 refresh requests load no user relations and preserve rotation', async 
   }
   t.diagnostic(`Refresh lookups: ${lookups.length}; user relation fetches requested: ${lookups.filter(args => args.include?.user).length}`);
   assert.equal(lookups.length, 100);
-  assert.equal(writes.length, 200);
+  assert.equal(writes.length, 100);
   assert.ok(lookups.every(args => !args.include?.user));
 });
 
