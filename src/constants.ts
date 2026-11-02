@@ -222,9 +222,6 @@ export const APP_CONFIG = {
   },
 } as const;
 
-// Type for the app config to ensure type safety
-export type AppConfig = typeof APP_CONFIG;
-
 /**
  * Helper function to parse duration strings (e.g., '7d', '15m') into milliseconds
  * @param duration - Duration string in format like '7d', '15m', '1h'
@@ -247,4 +244,4 @@ export function parseDuration(duration: string): number {
   };
   
   return value * multipliers[unit as keyof typeof multipliers];
-} 
+}

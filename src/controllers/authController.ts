@@ -271,16 +271,13 @@ export const refreshTokenHandler = async (req: Request, res: Response) => {
     const newExpiry = new Date();
     newExpiry.setTime(newExpiry.getTime() + parseDuration(APP_CONFIG.JWT.REFRESH_EXPIRES_IN));
 
-    await prisma.$transaction([
-      prisma.refreshToken.delete({ where: { token: refreshToken } }),
-      prisma.refreshToken.create({
-        data: {
-          token: newRefreshToken,
-          userId: existingToken.userId,
-          expiresAt: newExpiry,
-        },
-      }),
-    ]);
+    await prisma.refreshToken.update({
+      where: { token: refreshToken },
+      data: {
+        token: newRefreshToken,
+        expiresAt: newExpiry,
+      },
+    });
 
     // Issue new access token
     const accessToken = jwt.sign(
